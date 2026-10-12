@@ -5,7 +5,7 @@ import pytest
 import torch
 
 from app.inference.inference_pipeline import InferencePipeline
-from app.inference.prediction_result import PredictionResult
+from app.models.prediction_result import PredictionResult
 
 
 @dataclass

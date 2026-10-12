@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from app.inference.prediction_result import PredictionResult
+from app.models.prediction_result import PredictionResult
 from app.services.prediction_service import PredictionService
 
 

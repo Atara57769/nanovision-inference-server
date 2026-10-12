@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import torch
 
-from app.inference.prediction_result import PredictionResult
+from app.models.prediction_result import PredictionResult
 
 if TYPE_CHECKING:
     from app.models.base_model import BaseModel

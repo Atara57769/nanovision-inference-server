@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from app.inference.prediction_result import PredictionResult
+from app.models.prediction_result import PredictionResult
 
 if TYPE_CHECKING:
     from app.inference.inference_pipeline import InferencePipeline
