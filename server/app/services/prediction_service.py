@@ -13,12 +13,16 @@ if TYPE_CHECKING:
 
 
 class PredictionService:
-    """Delegate a prediction request to an injected inference pipeline."""
+    """Delegate prediction requests to the inference pipeline."""
 
     def __init__(self, pipeline: "InferencePipeline") -> None:
         self._pipeline = pipeline
 
-    def predict(self, image: np.ndarray) -> PredictionResult:
-        """Return the pipeline result, allowing failures to reach the API."""
+    @property
+    def is_ready(self) -> bool:
+        """Return whether the inference pipeline is available."""
+        return self._pipeline is not None
 
+    def predict(self, image: np.ndarray) -> PredictionResult:
+        """Run inference and return the prediction result."""
         return self._pipeline.run(image)
