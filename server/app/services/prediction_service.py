@@ -13,21 +13,16 @@ if TYPE_CHECKING:
 
 
 class PredictionService:
-    """Delegate a prediction request to an injected inference pipeline."""
+    """Delegate prediction requests to the inference pipeline."""
 
     def __init__(self, pipeline: "InferencePipeline") -> None:
         self._pipeline = pipeline
 
     @property
     def is_ready(self) -> bool:
-        """Whether a real pipeline/model is loaded, not just whether this object exists.
-
-        Assumption to confirm with Part 2's author: the real PredictionService should
-        expose this same property once it's merged, so /health keeps working unchanged.
-        """
+        """Return whether the inference pipeline is available."""
         return self._pipeline is not None
 
     def predict(self, image: np.ndarray) -> PredictionResult:
-        """Return the pipeline result, allowing failures to reach the API."""
-
+        """Run inference and return the prediction result."""
         return self._pipeline.run(image)
