@@ -10,7 +10,20 @@ from PIL import Image
 from app.api.image_utils import MAX_FILE_SIZE_BYTES, InvalidImageError, read_upload_within_limit
 from app.api.prediction_controller import get_prediction_service
 from app.main import create_app
+from app.models.prediction_result import PredictionResult
 from app.services.prediction_service import PredictionService
+
+
+class _StubReadyService:
+    """A ready (is_ready=True) stand-in for PredictionService, for tests that
+    exercise validation/decoding and don't care about prediction itself."""
+
+    is_ready = True
+
+    def predict(self, image: np.ndarray) -> PredictionResult:
+        height, width = image.shape[:2]
+        mask = np.zeros((height, width), dtype=np.uint8)
+        return PredictionResult(mask=mask, model_name="test-stub", model_version="v0", inference_time_ms=0.0)
 
 
 def _make_png_bytes() -> bytes:
@@ -52,6 +65,7 @@ def test_health_reports_ready_when_pipeline_is_loaded():
 
 def test_predict_valid_image_returns_mask():
     app = create_app()
+    app.dependency_overrides[get_prediction_service] = lambda: _StubReadyService()
     with TestClient(app) as client:
         files = {"file": ("test.png", _make_png_bytes(), "image/png")}
         response = client.post("/predict", files=files)
@@ -65,6 +79,7 @@ def test_predict_valid_image_returns_mask():
 
 def test_predict_rejects_invalid_content_type():
     app = create_app()
+    app.dependency_overrides[get_prediction_service] = lambda: _StubReadyService()
     with TestClient(app) as client:
         files = {"file": ("test.txt", b"not an image", "text/plain")}
         response = client.post("/predict", files=files)
@@ -73,6 +88,7 @@ def test_predict_rejects_invalid_content_type():
 
 def test_predict_accepts_image_jpg_content_type():
     app = create_app()
+    app.dependency_overrides[get_prediction_service] = lambda: _StubReadyService()
     with TestClient(app) as client:
         files = {"file": ("test.jpg", _make_png_bytes(), "image/jpg")}
         response = client.post("/predict", files=files)
@@ -83,6 +99,7 @@ def test_predict_accepts_file_between_1mb_and_10mb():
     content = _make_large_png_bytes()
     assert 1024 * 1024 < len(content) < MAX_FILE_SIZE_BYTES, "fixture must land strictly between 1MB and 10MB"
     app = create_app()
+    app.dependency_overrides[get_prediction_service] = lambda: _StubReadyService()
     with TestClient(app) as client:
         files = {"file": ("big.png", content, "image/png")}
         response = client.post("/predict", files=files)
@@ -91,6 +108,7 @@ def test_predict_accepts_file_between_1mb_and_10mb():
 
 def test_predict_rejects_wrong_content_type_for_large_file():
     app = create_app()
+    app.dependency_overrides[get_prediction_service] = lambda: _StubReadyService()
     large_wrong_type_content = b"x" * (3 * 1024 * 1024)
     with TestClient(app) as client:
         files = {"file": ("big.txt", large_wrong_type_content, "text/plain")}
@@ -112,6 +130,7 @@ def test_predict_rejects_wrong_content_type_without_reading_body(monkeypatch):
     monkeypatch.setattr(controller_module, "read_upload_within_limit", _fake_read_upload_within_limit)
 
     app = create_app()
+    app.dependency_overrides[get_prediction_service] = lambda: _StubReadyService()
     with TestClient(app) as client:
         files = {"file": ("test.txt", b"not an image", "text/plain")}
         response = client.post("/predict", files=files)
@@ -122,6 +141,7 @@ def test_predict_rejects_wrong_content_type_without_reading_body(monkeypatch):
 
 def test_predict_rejects_corrupt_image_bytes():
     app = create_app()
+    app.dependency_overrides[get_prediction_service] = lambda: _StubReadyService()
     with TestClient(app) as client:
         files = {"file": ("test.png", b"\x89PNG\r\n not really a png", "image/png")}
         response = client.post("/predict", files=files)
@@ -146,6 +166,7 @@ def test_predict_maps_pipeline_failure_to_500():
 
 def test_predict_requires_file():
     app = create_app()
+    app.dependency_overrides[get_prediction_service] = lambda: _StubReadyService()
     with TestClient(app) as client:
         response = client.post("/predict")
     assert response.status_code == 422
@@ -154,10 +175,21 @@ def test_predict_requires_file():
 def test_predict_rejects_decompression_bomb(monkeypatch):
     monkeypatch.setattr(PIL.Image, "MAX_IMAGE_PIXELS", 10)
     app = create_app()
+    app.dependency_overrides[get_prediction_service] = lambda: _StubReadyService()
     with TestClient(app) as client:
         files = {"file": ("test.png", _make_png_bytes(), "image/png")}
         response = client.post("/predict", files=files)
     assert response.status_code == 400
+
+
+def test_predict_returns_503_when_pipeline_not_ready():
+    """With the real PredictionService wired to a None pipeline (pending the
+    part-3 model loader), /predict must fail fast with 503, not a 500/crash."""
+    app = create_app()
+    with TestClient(app) as client:
+        files = {"file": ("test.png", _make_png_bytes(), "image/png")}
+        response = client.post("/predict", files=files)
+    assert response.status_code == 503
 
 
 class _FakeUploadFile:

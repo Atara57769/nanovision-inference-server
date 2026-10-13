@@ -8,10 +8,9 @@ from app.services.prediction_service import PredictionService
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # TODO(part 3): replace with the real model loader.
-    model = None
-    # TODO(part 2): replace with the real InferencePipeline(model).
-    pipeline = model
+    # TODO(part 3): replace with the real model loader, then wrap it in
+    # app.inference.inference_pipeline.InferencePipeline.
+    pipeline = None
 
     app.state.prediction_service = PredictionService(pipeline)
     yield

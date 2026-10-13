@@ -20,7 +20,7 @@ def get_prediction_service_or_none(app: FastAPI) -> PredictionService | None:
 
 def get_prediction_service(request: Request) -> PredictionService:
     service = get_prediction_service_or_none(request.app)
-    if service is None:
+    if service is None or not service.is_ready:
         raise HTTPException(status_code=503, detail="Prediction service not ready")
     return service
 
