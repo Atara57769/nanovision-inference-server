@@ -6,10 +6,24 @@ from pathlib import Path
 import pytest
 import torch
 
+from app.config.settings import CHECKPOINT_PATH_ENV, CONFIG_PATH_ENV
 from app.models.classes import CLASS_NAMES
 
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
+
+
+@pytest.fixture(autouse=True)
+def no_real_model(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Keep every test away from the real checkpoint on this machine.
+
+    Server startup then finds no model and starts as not ready, quickly and the
+    same way on every machine. Tests that need a ready server set their own
+    checkpoint.
+    """
+
+    monkeypatch.setenv(CHECKPOINT_PATH_ENV, str(tmp_path / "no-model.pt"))
+    monkeypatch.delenv(CONFIG_PATH_ENV, raising=False)
 
 
 @pytest.fixture
