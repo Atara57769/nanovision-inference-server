@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.concurrency import run_in_threadpool
 
@@ -10,6 +12,8 @@ from app.api.image_utils import (
 )
 from app.api.response_utils import serialize_result
 from app.services.prediction_service import PredictionService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -41,6 +45,7 @@ async def predict_image(
     try:
         result = await run_in_threadpool(service.predict, image)
     except Exception as exc:
+        logger.exception("Prediction failed")
         raise HTTPException(status_code=500, detail="Prediction failed") from exc
 
     return serialize_result(result)

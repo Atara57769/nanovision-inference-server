@@ -11,7 +11,7 @@ class PredictionResult:
 
     ``mask`` is produced by the injected model's postprocessing step.  It has
     the original image's height and width, and stores the model's class IDs:
-    background (0), bright (1), and dark (2).
+    background (0), dark (1), and bright (2).
     """
 
     mask: np.ndarray
