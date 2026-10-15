@@ -63,25 +63,6 @@ def test_health_reports_ready_when_pipeline_is_loaded():
     assert response.json()["service_ready"] is True
 
 
-def test_ready_returns_503_until_the_model_is_loaded():
-    app = create_app()
-    with TestClient(app) as client:
-        response = client.get("/ready")
-
-    assert response.status_code == 503
-    assert response.json() == {"status": "not_ready", "service_ready": False}
-
-
-def test_ready_returns_200_when_the_model_is_loaded():
-    app = create_app()
-    with TestClient(app) as client:
-        app.state.prediction_service = PredictionService(pipeline=object())
-        response = client.get("/ready")
-
-    assert response.status_code == 200
-    assert response.json() == {"status": "ready", "service_ready": True}
-
-
 def test_predict_valid_image_returns_mask():
     app = create_app()
     app.dependency_overrides[get_prediction_service] = lambda: _StubReadyService()

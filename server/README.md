@@ -33,7 +33,6 @@ incompatible checkpoint, invalid config), the server still starts but is not
 ready, and the log says why.
 
 - `GET /health` returns `{"status": "ok", "service_ready": true}` when the model is loaded.
-- `GET /ready` is a readiness probe: it returns 200 only after the model is loaded, otherwise 503.
 - `POST /predict` takes a TIFF, PNG, JPEG or WebP file (up to 10 MB) as form field
   `file` and returns the mask as a base64 PNG, with `model_name`, `model_version`
   and `inference_time_ms`. It answers 503 while the server is not ready.
