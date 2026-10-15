@@ -10,10 +10,9 @@ first request.
 
 from __future__ import annotations
 
-import os
 import re
 from collections.abc import Mapping
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 from typing import Any
@@ -25,11 +24,6 @@ from app.models.model_name import ModelName
 # The server/ folder. Relative checkpoint paths start here, wherever the server is launched from.
 SERVER_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CONFIG_PATH = Path(__file__).with_name("model_config.yaml")
-
-# Optional environment variables, read once at startup, so a deployment can use
-# its own files without editing the repository.
-CONFIG_PATH_ENV = "NANOVISION_MODEL_CONFIG"  # replaces DEFAULT_CONFIG_PATH
-CHECKPOINT_PATH_ENV = "NANOVISION_CHECKPOINT"  # replaces the active model's checkpoint
 
 _TOP_LEVEL_KEYS = {"active_model", "device", "batch_size", "footer_height", "models"}
 _MODEL_KEYS = {"checkpoint", "tile_size", "overlap"}
@@ -86,26 +80,6 @@ def load_settings(path: Path = DEFAULT_CONFIG_PATH) -> Settings:
     except SettingsError as error:
         raise SettingsError(f"{path}: {error}") from None
     return settings
-
-
-def load_settings_from_environment(environ: Mapping[str, str] = os.environ) -> Settings:
-    """The settings of the running server: the default files, unless the environment names others."""
-
-    # Relative paths in the environment start at server/ too: one rule for every path the server reads.
-    config_path = environ.get(CONFIG_PATH_ENV)
-    settings = load_settings(_path(config_path, CONFIG_PATH_ENV) if config_path else DEFAULT_CONFIG_PATH)
-    checkpoint = environ.get(CHECKPOINT_PATH_ENV)
-    if not checkpoint:
-        return settings
-    # An explicit deployment path is authoritative; it may be a private or newer
-    # artifact and therefore must not be verified against the shipped HF digest.
-    active = replace(
-        settings.active,
-        checkpoint=_path(checkpoint, CHECKPOINT_PATH_ENV),
-        checkpoint_url=None,
-        checkpoint_sha256=None,
-    )
-    return replace(settings, models={**settings.models, settings.active_model: active})
 
 
 def validate_settings(settings: Settings) -> None:

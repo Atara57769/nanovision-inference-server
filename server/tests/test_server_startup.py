@@ -2,13 +2,14 @@
 
 import base64
 import io
+from dataclasses import replace
 
 import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
 
-from app.config.settings import CHECKPOINT_PATH_ENV, load_settings
+from app.config.settings import load_settings
 from app.main import create_app
 from tests.helpers import research_unetpp
 
@@ -23,7 +24,15 @@ def tiff_bytes(pixels: np.ndarray) -> bytes:
 def ready_app(write_checkpoint, monkeypatch: pytest.MonkeyPatch):
     # Untrained weights: enough to prove the wiring; accuracy is checked against research separately.
     checkpoint = write_checkpoint(research_unetpp().state_dict(), model_name="unetpp")
-    monkeypatch.setenv(CHECKPOINT_PATH_ENV, str(checkpoint))
+    settings = load_settings()
+    active = replace(
+        settings.active,
+        checkpoint=checkpoint,
+        checkpoint_url=None,
+        checkpoint_sha256=None,
+    )
+    settings = replace(settings, models={**settings.models, settings.active_model: active})
+    monkeypatch.setattr("app.main.load_settings", lambda: settings)
     return create_app()
 
 

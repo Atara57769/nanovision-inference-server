@@ -1,12 +1,13 @@
 """Shared test fixtures."""
 
 from collections.abc import Callable, Mapping, Sequence
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 import torch
 
-from app.config.settings import CHECKPOINT_PATH_ENV, CONFIG_PATH_ENV
+from app.config.settings import load_settings
 from app.models.classes import CLASS_NAMES
 
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
@@ -17,13 +18,20 @@ IMAGENET_STD = (0.229, 0.224, 0.225)
 def no_real_model(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Keep every test away from the real checkpoint on this machine.
 
-    Server startup then finds no model and starts as not ready, quickly and the
-    same way on every machine. Tests that need a ready server set their own
-    checkpoint.
+    Server startup then gets a missing test checkpoint and starts as not ready,
+    quickly and the same way on every machine. Tests that need a ready server
+    replace those settings with their own checkpoint.
     """
 
-    monkeypatch.setenv(CHECKPOINT_PATH_ENV, str(tmp_path / "no-model.pt"))
-    monkeypatch.delenv(CONFIG_PATH_ENV, raising=False)
+    settings = load_settings()
+    active = replace(
+        settings.active,
+        checkpoint=tmp_path / "no-model.pt",
+        checkpoint_url=None,
+        checkpoint_sha256=None,
+    )
+    settings = replace(settings, models={**settings.models, settings.active_model: active})
+    monkeypatch.setattr("app.main.load_settings", lambda: settings)
 
 
 @pytest.fixture

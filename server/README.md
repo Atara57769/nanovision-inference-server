@@ -19,8 +19,7 @@ At first startup the server downloads the official U-Net++ checkpoint from the
 [NanoVision Hugging Face repository](https://huggingface.co/atara57769/nanovision-segmentation),
 then verifies its SHA-256 and caches it at `checkpoints/unetpp/unetplusplus_best.pt`.
 It is not in git: the repository is public, and `checkpoints/` is ignored. To
-run without network access, put that verified file in the cache path first, or
-set `NANOVISION_CHECKPOINT` to a local copy.
+run without network access, put that verified file in the cache path first.
 
 ## Run
 
@@ -45,18 +44,12 @@ On a laptop CPU, one 1024×768 image takes about 20–25 seconds.
 
 ## Configuration
 
-`app/config/model_config.yaml` chooses the model and how it runs: `active_model`,
+`app/config/model_config.yaml`, tracked in Git, chooses the model and how it runs: `active_model`,
 `device` (`cpu`, `cuda` or `auto`), `batch_size`, `footer_height` (rows of the
 microscope's info bar, returned as background) and, per model, `checkpoint`,
 `tile_size` and `overlap`. The shipped configuration also pins the Hugging Face
 artifact URL and SHA-256. Changing the model needs only this file and a restart.
-
-Two optional environment variables override it, for example on another machine:
-
-- `NANOVISION_MODEL_CONFIG`: path to a different config file
-- `NANOVISION_CHECKPOINT`: path to the active model's checkpoint
-
-Relative paths, in the file and in these variables, start at this `server/` folder.
+Relative paths in the file start at this `server/` folder.
 
 ## Tests
 
