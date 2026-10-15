@@ -50,7 +50,9 @@ def test_without_environment_variables_the_project_defaults_are_used() -> None:
     settings = load_settings_from_environment(environ={})
 
     assert settings == load_settings(DEFAULT_CONFIG_PATH)
-    assert settings.active.checkpoint == SERVER_ROOT / "checkpoints" / "unetpp" / "best.pt"
+    assert settings.active.checkpoint == SERVER_ROOT / "checkpoints" / "unetpp" / "unetplusplus_best.pt"
+    assert settings.active.checkpoint_url is not None
+    assert settings.active.checkpoint_sha256 is not None
 
 
 def test_environment_variables_choose_the_config_and_the_checkpoint(tmp_path: Path) -> None:
@@ -65,6 +67,8 @@ def test_environment_variables_choose_the_config_and_the_checkpoint(tmp_path: Pa
 
     assert settings.batch_size == 2  # read from the other config file
     assert settings.active.checkpoint == tmp_path / "deployed.pt"
+    assert settings.active.checkpoint_url is None
+    assert settings.active.checkpoint_sha256 is None
 
 
 def test_relative_paths_in_the_environment_also_start_at_the_server_folder() -> None:
@@ -125,6 +129,8 @@ def _set_model(key: str, value):
         pytest.param(_set_model("tile_size", 0), "tile_size must be positive", id="zero tile size"),
         pytest.param(_set_model("overlap", 256), "overlap must be at least 0", id="overlap equals tile"),
         pytest.param(_set_model("checkpoint", ""), "checkpoint must be a file path", id="empty checkpoint"),
+        pytest.param(_set_model("checkpoint_url", "http://example.com/model.pt"), "must be an https URL", id="insecure checkpoint URL"),
+        pytest.param(_set_model("checkpoint_sha256", "bad"), "must be a lowercase 64-character", id="bad checkpoint digest"),
         pytest.param(lambda config: config.pop("batch_size"), "missing: batch_size", id="missing key"),
         pytest.param(_set("batch_sise", 8), "unknown keys: batch_sise", id="misspelled key"),
         pytest.param(_set_model("tile", 256), "unknown keys: tile", id="misspelled model key"),

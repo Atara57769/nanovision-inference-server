@@ -244,6 +244,10 @@ class BaseModel(ABC):
             problems.append(f"it was trained on {checkpoint.crop_size}px crops, but tile_size is {self._tile_size}")
         if len(checkpoint.mean) != INPUT_CHANNELS or len(checkpoint.std) != INPUT_CHANNELS:
             problems.append(f"its normalisation does not have {INPUT_CHANNELS} channels")
+        elif not all(np.isfinite(value) for value in checkpoint.mean):
+            problems.append("its normalisation mean contains a non-finite value")
+        elif not all(np.isfinite(value) and value > 0 for value in checkpoint.std):
+            problems.append("its normalisation std must contain only finite values greater than zero")
         if problems:
             raise ValueError(f"cannot use checkpoint {checkpoint_path}: " + "; ".join(problems))
 

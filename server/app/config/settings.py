@@ -11,6 +11,7 @@ first request.
 from __future__ import annotations
 
 import os
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from enum import StrEnum
@@ -32,6 +33,7 @@ CHECKPOINT_PATH_ENV = "NANOVISION_CHECKPOINT"  # replaces the active model's che
 
 _TOP_LEVEL_KEYS = {"active_model", "device", "batch_size", "footer_height", "models"}
 _MODEL_KEYS = {"checkpoint", "tile_size", "overlap"}
+_OPTIONAL_MODEL_KEYS = {"checkpoint_url", "checkpoint_sha256"}
 
 
 class SettingsError(ValueError):
@@ -51,6 +53,8 @@ class ModelSettings:
     checkpoint: Path
     tile_size: int
     overlap: int
+    checkpoint_url: str | None = None
+    checkpoint_sha256: str | None = None
 
 
 @dataclass(frozen=True)
@@ -93,7 +97,14 @@ def load_settings_from_environment(environ: Mapping[str, str] = os.environ) -> S
     checkpoint = environ.get(CHECKPOINT_PATH_ENV)
     if not checkpoint:
         return settings
-    active = replace(settings.active, checkpoint=_path(checkpoint, CHECKPOINT_PATH_ENV))
+    # An explicit deployment path is authoritative; it may be a private or newer
+    # artifact and therefore must not be verified against the shipped HF digest.
+    active = replace(
+        settings.active,
+        checkpoint=_path(checkpoint, CHECKPOINT_PATH_ENV),
+        checkpoint_url=None,
+        checkpoint_sha256=None,
+    )
     return replace(settings, models={**settings.models, settings.active_model: active})
 
 
@@ -116,6 +127,10 @@ def validate_settings(settings: Settings) -> None:
                 f"models.{name}.overlap must be at least 0 and less than tile_size "
                 f"({model.tile_size}), got {model.overlap}"
             )
+        if (model.checkpoint_url is None) != (model.checkpoint_sha256 is None):
+            problems.append(
+                f"models.{name}.checkpoint_url and models.{name}.checkpoint_sha256 must be set together"
+            )
     if problems:
         raise SettingsError("; ".join(problems))
 
@@ -129,11 +144,13 @@ def _parse(raw: Any) -> Settings:
     for raw_name, raw_model in _mapping(top["models"], "models").items():
         name = _model_name(raw_name, "models")  # first: a wrong name makes the rest meaningless
         where = f"models.{name}"
-        entry = _mapping(raw_model, where, _MODEL_KEYS)
+        entry = _mapping(raw_model, where, _MODEL_KEYS, _OPTIONAL_MODEL_KEYS)
         models[name] = ModelSettings(
             checkpoint=_path(entry["checkpoint"], f"{where}.checkpoint"),
             tile_size=_whole_number(entry["tile_size"], f"{where}.tile_size"),
             overlap=_whole_number(entry["overlap"], f"{where}.overlap"),
+            checkpoint_url=_optional_url(entry, f"{where}.checkpoint_url"),
+            checkpoint_sha256=_optional_sha256(entry, f"{where}.checkpoint_sha256"),
         )
     return Settings(
         active_model=_model_name(top["active_model"], "active_model"),
@@ -144,14 +161,19 @@ def _parse(raw: Any) -> Settings:
     )
 
 
-def _mapping(value: Any, where: str, keys: set[str] | None = None) -> Mapping[Any, Any]:
+def _mapping(
+    value: Any,
+    where: str,
+    required_keys: set[str] | None = None,
+    optional_keys: set[str] | None = None,
+) -> Mapping[Any, Any]:
     if not isinstance(value, Mapping):
         raise SettingsError(f"{where} must be a mapping of keys to values, got {value!r}")
-    if keys is not None:
-        missing = keys - value.keys()
+    if required_keys is not None:
+        missing = required_keys - value.keys()
         # Rejecting unknown keys catches typos: a misspelled optional key would
         # otherwise be ignored without a word.
-        unknown = value.keys() - keys
+        unknown = value.keys() - required_keys - (optional_keys or set())
         if missing:
             raise SettingsError(f"{where} is missing: {', '.join(sorted(missing))}")
         if unknown:
@@ -185,3 +207,21 @@ def _path(value: Any, where: str) -> Path:
         raise SettingsError(f"{where} must be a file path, got {value!r}")
     path = Path(value)
     return path if path.is_absolute() else SERVER_ROOT / path
+
+
+def _optional_url(entry: Mapping[Any, Any], where: str) -> str | None:
+    value = entry.get("checkpoint_url")
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value.startswith("https://"):
+        raise SettingsError(f"{where} must be an https URL, got {value!r}")
+    return value
+
+
+def _optional_sha256(entry: Mapping[Any, Any], where: str) -> str | None:
+    value = entry.get("checkpoint_sha256")
+    if value is None:
+        return None
+    if not isinstance(value, str) or re.fullmatch(r"[0-9a-f]{64}", value) is None:
+        raise SettingsError(f"{where} must be a lowercase 64-character SHA-256 hex digest")
+    return value

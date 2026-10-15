@@ -51,7 +51,7 @@ def test_health_ok_but_not_ready_with_stub_pipeline():
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "ok"
-    # pipeline is still a Part 2/3 placeholder (None), so readiness must say so.
+    # A model that failed to load leaves the application alive but not ready.
     assert body["service_ready"] is False
 
 
@@ -183,8 +183,7 @@ def test_predict_rejects_decompression_bomb(monkeypatch):
 
 
 def test_predict_returns_503_when_pipeline_not_ready():
-    """With the real PredictionService wired to a None pipeline (pending the
-    part-3 model loader), /predict must fail fast with 503, not a 500/crash."""
+    """A failed or unavailable model must produce 503, not a 500/crash."""
     app = create_app()
     with TestClient(app) as client:
         files = {"file": ("test.png", _make_png_bytes(), "image/png")}

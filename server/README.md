@@ -15,9 +15,12 @@ pip install torch --index-url https://download.pytorch.org/whl/cpu
 pip install -r requirements.txt
 ```
 
-Put the trained checkpoint at `checkpoints/unetpp/best.pt`. It is not in git:
-the repository is public, and `checkpoints/` is ignored. The official file is
-the 11/10 retrain (step 2500, DEV score 0.8537).
+At first startup the server downloads the official U-Net++ checkpoint from the
+[NanoVision Hugging Face repository](https://huggingface.co/atara57769/nanovision-segmentation),
+then verifies its SHA-256 and caches it at `checkpoints/unetpp/unetplusplus_best.pt`.
+It is not in git: the repository is public, and `checkpoints/` is ignored. To
+run without network access, put that verified file in the cache path first, or
+set `NANOVISION_CHECKPOINT` to a local copy.
 
 ## Run
 
@@ -45,7 +48,8 @@ On a laptop CPU, one 1024×768 image takes about 20–25 seconds.
 `app/config/model_config.yaml` chooses the model and how it runs: `active_model`,
 `device` (`cpu`, `cuda` or `auto`), `batch_size`, `footer_height` (rows of the
 microscope's info bar, returned as background) and, per model, `checkpoint`,
-`tile_size` and `overlap`. Changing the model needs only this file and a restart.
+`tile_size` and `overlap`. The shipped configuration also pins the Hugging Face
+artifact URL and SHA-256. Changing the model needs only this file and a restart.
 
 Two optional environment variables override it, for example on another machine:
 
