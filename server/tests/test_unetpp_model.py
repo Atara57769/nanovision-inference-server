@@ -14,14 +14,9 @@ from app.inference.inference_pipeline import InferencePipeline
 from app.models.classes import NUM_CLASSES
 from app.models.model_name import ModelName
 from app.models.unetpp_model import UNetPlusPlusModel
+from tests.helpers import research_unetpp
 
 CPU = torch.device("cpu")
-
-
-def research_unetpp() -> torch.nn.Module:
-    """Built independently of the server code, exactly as research src/models/unetpp.py does."""
-
-    return smp.UnetPlusPlus(encoder_name="resnet34", encoder_weights=None, in_channels=3, classes=3)
 
 
 @pytest.fixture

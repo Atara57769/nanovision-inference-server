@@ -1,9 +1,4 @@
-"""The BaseModel contract, tested with a tiny stand-in network (no real checkpoint).
-
-The stand-in is pointwise -- each pixel's class depends only on that pixel -- so
-the correct mask is known in advance for any image, and any mistake in tiling,
-ordering, averaging or cropping shows up as a wrong pixel.
-"""
+"""The BaseModel contract, tested with a tiny pointwise stand-in network (no real checkpoint)."""
 
 import hashlib
 from pathlib import Path
@@ -11,49 +6,16 @@ from pathlib import Path
 import numpy as np
 import pytest
 import torch
-from torch import nn
 
 from app.inference.inference_pipeline import InferencePipeline
 from app.inference.tiling import split_to_tiles
 from app.models import base_model
 from app.models.base_model import BaseModel, ReconstructionMetadata
 from app.models.classes import SegmentationClass
+from tests.helpers import BRIGHT_ABOVE, DARK_BELOW, NO_NORMALISATION, FakeModel, StripeNetwork
 
 TILE, OVERLAP = 256, 128
 CPU = torch.device("cpu")
-# The stand-in network reads gray values directly, so its checkpoints use an
-# identity normalisation. Real normalisation is tested on its own below.
-NO_NORMALISATION = {"mean": (0.0, 0.0, 0.0), "std": (1.0, 1.0, 1.0)}
-DARK_BELOW, BRIGHT_ABOVE = 0.25, 0.75
-
-
-class StripeNetwork(nn.Module):
-    """Pointwise: gray < 0.25 -> DARK, gray > 0.75 -> BRIGHT, otherwise BACKGROUND."""
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.sharpness = nn.Parameter(torch.tensor(100.0))
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        gray = x[:, :1]
-        background = torch.zeros_like(gray)
-        dark = (DARK_BELOW - gray) * self.sharpness
-        bright = (gray - BRIGHT_ABOVE) * self.sharpness
-        return torch.cat([background, dark, bright], dim=1)  # channel k = SegmentationClass(k)
-
-
-class FakeModel(BaseModel):
-    name = "fake-stripes"
-
-    def __init__(self, **kwargs: int) -> None:
-        super().__init__(**kwargs)
-        self.build_calls = 0
-        self.network: StripeNetwork | None = None
-
-    def _build_network(self) -> nn.Module:
-        self.build_calls += 1
-        self.network = StripeNetwork()
-        return self.network
 
 
 def expected_mask(gray_uint8: np.ndarray) -> np.ndarray:
