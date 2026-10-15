@@ -17,6 +17,7 @@ from collections.abc import Callable
 import torch
 
 from app.config.settings import Device, Settings
+from app.model_management.checkpoint_download import ensure_checkpoint
 from app.model_management.model_registry import create_model
 from app.models.base_model import BaseModel
 
@@ -61,6 +62,11 @@ class ModelProvider:
         model_settings = self._settings.active
         device = resolve_device(self._settings.device)
         try:
+            checkpoint = ensure_checkpoint(
+                model_settings.checkpoint,
+                model_settings.checkpoint_url,
+                model_settings.checkpoint_sha256,
+            )
             model = self._model_factory(
                 name,
                 tile_size=model_settings.tile_size,
@@ -68,7 +74,7 @@ class ModelProvider:
                 batch_size=self._settings.batch_size,
                 footer_height=self._settings.footer_height,
             )
-            model.load(model_settings.checkpoint, device)
+            model.load(checkpoint, device)
         except Exception as error:
             # Whatever the cause (missing file, corrupt file, incompatible
             # checkpoint), the configured model is unusable. Name the config key

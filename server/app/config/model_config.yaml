@@ -13,10 +13,11 @@ footer_height: 50
 
 models:
   unetpp:
-    # Official checkpoint: the 11/10 retrain, step 2500, DEV score 0.8537.
-    # Relative paths start at the server/ folder. NANOVISION_CHECKPOINT overrides
-    # this path, and NANOVISION_MODEL_CONFIG this whole file. The checkpoint is
-    # never committed: the repository is public.
-    checkpoint: checkpoints/unetpp/best.pt
+    # Official checkpoint, fetched from the pinned Hugging Face revision when
+    # absent locally. It is cached here but never committed. NANOVISION_CHECKPOINT
+    # overrides this path, and NANOVISION_MODEL_CONFIG this whole file.
+    checkpoint: checkpoints/unetpp/unetplusplus_best.pt
+    checkpoint_url: https://huggingface.co/atara57769/nanovision-segmentation/resolve/7802465e6b0e578cf31f65ab737f83849a512682/unetplusplus_best.pt
+    checkpoint_sha256: 7837366532cb6d4dbcab8bcee63bba906b43a9d04699be55373cd55eaf2d0f67
     tile_size: 256            # must equal the training crop size stored in the checkpoint
     overlap: 128              # 128 reproduces research exactly (its stride 128); less is faster
