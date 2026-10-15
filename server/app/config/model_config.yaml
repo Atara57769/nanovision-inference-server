@@ -1,0 +1,22 @@
+# Model configuration, read once at startup by app/config/settings.py.
+# Switching models needs only a change here and a restart, no code change.
+
+active_model: unetpp          # one of the names under "models"
+
+device: cpu                   # cpu | cuda | auto (cuda when available, otherwise cpu)
+batch_size: 8                 # tiles per forward pass
+
+# Bottom rows of each image that hold the microscope's info bar (text, scale bar).
+# They are not predicted and come back as background. Team decision: 50, as in
+# research, where every training image has this bar at rows 718-767.
+footer_height: 50
+
+models:
+  unetpp:
+    # Official checkpoint: the 11/10 retrain, step 2500, DEV score 0.8537.
+    # Relative paths start at the server/ folder. NANOVISION_CHECKPOINT overrides
+    # this path, and NANOVISION_MODEL_CONFIG this whole file. The checkpoint is
+    # never committed: the repository is public.
+    checkpoint: checkpoints/unetpp/best.pt
+    tile_size: 256            # must equal the training crop size stored in the checkpoint
+    overlap: 128              # 128 reproduces research exactly (its stride 128); less is faster
