@@ -85,3 +85,174 @@ h2 {
 p {
   margin: 0;
 }
+
+.page {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  padding: 0 24px 64px;
+  box-sizing: border-box;
+}
+
+.page__header {
+  text-align: center;
+}
+
+.page__header h1 {
+  margin-bottom: 8px;
+}
+
+.page__subtitle {
+  font-size: 16px;
+  color: var(--text);
+}
+
+.card {
+  width: 100%;
+  max-width: 560px;
+  box-sizing: border-box;
+  padding: 32px;
+  text-align: left;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+}
+
+.upload-form {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 16px;
+}
+
+.dropzone {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: 24px;
+  border: 1.5px dashed var(--border);
+  border-radius: 12px;
+  background: var(--accent-bg);
+  color: var(--text);
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.dropzone:hover {
+  border-color: var(--accent-border);
+}
+
+.dropzone--disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* The native input stays in the DOM (focusable, clickable, keeps its
+   aria-label) but is visually replaced by .dropzone__text below — this is
+   what hides the browser's own, locale-dependent file-input chrome. */
+.dropzone__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.dropzone__text {
+  font-size: 14px;
+  font-weight: 500;
+  word-break: break-all;
+}
+
+.btn {
+  appearance: none;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 20px;
+  font: inherit;
+  font-weight: 600;
+  color: #fff;
+  background: var(--accent);
+  cursor: pointer;
+  transition: opacity 0.15s ease, transform 0.05s ease;
+}
+
+.btn:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.btn:disabled {
+  background: var(--border);
+  color: var(--text);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.alert {
+  margin-top: 16px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: rgba(220, 38, 38, 0.1);
+  border: 1px solid rgba(220, 38, 38, 0.3);
+  color: #dc2626;
+  font-size: 14px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .alert {
+    background: rgba(248, 113, 113, 0.12);
+    border-color: rgba(248, 113, 113, 0.35);
+    color: #f87171;
+  }
+}
+
+.result dl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  margin: 0 0 20px;
+}
+
+.result dt {
+  margin: 0 0 4px;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.result dd {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.mask-canvas canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: #000;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.mask-canvas p {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--text);
+}

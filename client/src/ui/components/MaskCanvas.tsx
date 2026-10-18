@@ -158,7 +158,7 @@ export function MaskCanvas({ mask, sourceImage }: MaskCanvasProps) {
   }, [mask, sourceImage])
 
   return (
-    <div>
+    <div className="mask-canvas">
       <canvas
         ref={canvasRef}
         width={mask.width}
