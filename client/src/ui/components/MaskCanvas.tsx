@@ -4,15 +4,8 @@ import { computeBoundaryPixels } from '@core/policies/computeBoundaryPixels'
 import type { SegmentationMask } from '@core/entities/SegmentationMask'
 import { SEGMENTATION_CLASS } from '@core/entities/SegmentationMask'
 
+import { CLASS_COLORS, FALLBACK_CLASS_COLOR } from '../lib/classColors'
 import { decodeTiffPreview } from '../lib/decodeTiffPreview'
-
-type Rgb = readonly [number, number, number]
-
-const CLASS_COLORS: Record<number, Rgb> = {
-  [SEGMENTATION_CLASS.BRIGHT]: [250, 204, 21],
-  [SEGMENTATION_CLASS.DARK]: [99, 61, 191],
-}
-const FALLBACK_COLOR: Rgb = [220, 38, 38]
 
 function buildOutlineImageData(mask: SegmentationMask): ImageData | null {
   // The `ImageData` constructor throws for a zero dimension — a degenerate
@@ -28,7 +21,7 @@ function buildOutlineImageData(mask: SegmentationMask): ImageData | null {
     if (classId === SEGMENTATION_CLASS.BACKGROUND) {
       continue
     }
-    const [r, g, b] = CLASS_COLORS[classId] ?? FALLBACK_COLOR
+    const [r, g, b] = CLASS_COLORS[classId] ?? FALLBACK_CLASS_COLOR
     outline.data[i * 4] = r
     outline.data[i * 4 + 1] = g
     outline.data[i * 4 + 2] = b

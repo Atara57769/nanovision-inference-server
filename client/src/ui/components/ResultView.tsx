@@ -1,6 +1,7 @@
 import type { PredictionResult } from '@core/entities/PredictionResult'
 
 import { MaskCanvas } from './MaskCanvas'
+import { MeasurementsPanel } from './MeasurementsPanel'
 
 interface ResultViewProps {
   result: PredictionResult
@@ -11,21 +12,22 @@ interface ResultViewProps {
 export function ResultView({ result, sourceImage }: ResultViewProps) {
   return (
     <section className="card result" aria-label="Prediction result">
-      <dl>
-        <div className="result__stat">
-          <dt>Model</dt>
-          <dd>
-            {/* No hardcoded "v" prefix — the server's modelVersion string owns its own format
-                (e.g. "v1-step2500-78373665" vs the mock's "0.0.0-mock"); don't assume one. */}
+      <div className="result__header">
+        <h2>Segmentation result</h2>
+        <div className="result__meta">
+          {/* No hardcoded "v" prefix — the server's modelVersion string owns its own format
+              (e.g. "v1-step2500-78373665" vs the mock's "0.0.0-mock"); don't assume one. */}
+          <span>
             {result.modelName} {result.modelVersion}
-          </dd>
+          </span>
+          <span aria-hidden="true">·</span>
+          <span>{result.inferenceTimeMs.toFixed(1)} ms</span>
         </div>
-        <div className="result__stat">
-          <dt>Inference time</dt>
-          <dd>{result.inferenceTimeMs.toFixed(1)} ms</dd>
-        </div>
-      </dl>
-      <MaskCanvas mask={result.mask} sourceImage={sourceImage} />
+      </div>
+      <div className="result__body">
+        <MaskCanvas mask={result.mask} sourceImage={sourceImage} />
+        <MeasurementsPanel measurements={result.measurements} />
+      </div>
     </section>
   )
 }

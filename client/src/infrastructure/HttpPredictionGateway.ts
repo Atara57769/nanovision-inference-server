@@ -1,15 +1,107 @@
 import type { ImageInput } from '@core/entities/ImageInput'
+import type {
+  MeasurementStatistics,
+  Particle,
+  ParticleMeasurements,
+  StatSummary,
+} from '@core/entities/ParticleMeasurements'
 import type { PredictionResult } from '@core/entities/PredictionResult'
 import type { PredictionError } from '@core/errors/PredictionError'
 import type { PredictionGateway } from '@core/ports/PredictionGateway'
 
 import { decodeMaskPng } from './pngDecode'
 
+interface StatSummaryBody {
+  count: number
+  mean: number | null
+  variance: number | null
+  histogram: { bin_edges: number[]; counts: number[] }
+}
+
+interface ParticleBody {
+  id: number
+  centroid: readonly [number, number]
+  area: number
+  perimeter: number
+  circularity: number
+  cu_area_fraction: number
+  ag_area_fraction: number
+  cu_ag_area_ratio: number | null
+  interface_length: number
+  nearest_particle_distance: number | null
+}
+
+interface MeasurementsBody {
+  particles: ParticleBody[]
+  statistics: {
+    area: StatSummaryBody
+    perimeter: StatSummaryBody
+    circularity: StatSummaryBody
+    cu_area_fraction: StatSummaryBody
+    ag_area_fraction: StatSummaryBody
+    cu_ag_area_ratio: StatSummaryBody
+    interface_length: StatSummaryBody
+    nearest_particle_distance: StatSummaryBody
+  }
+  units: { length: string; area: string }
+}
+
 interface PredictResponseBody {
   mask: string
   model_name: string
   model_version: string
   inference_time_ms: number
+  // Older server builds don't return this yet — optional until it's
+  // everywhere.
+  measurements?: MeasurementsBody
+}
+
+function mapStatSummary(body: StatSummaryBody): StatSummary {
+  return {
+    count: body.count,
+    mean: body.mean,
+    variance: body.variance,
+    histogram: { binEdges: body.histogram.bin_edges, counts: body.histogram.counts },
+  }
+}
+
+function mapParticle(body: ParticleBody): Particle {
+  return {
+    id: body.id,
+    centroid: body.centroid,
+    area: body.area,
+    perimeter: body.perimeter,
+    circularity: body.circularity,
+    cuAreaFraction: body.cu_area_fraction,
+    agAreaFraction: body.ag_area_fraction,
+    cuAgAreaRatio: body.cu_ag_area_ratio,
+    interfaceLength: body.interface_length,
+    nearestParticleDistance: body.nearest_particle_distance,
+  }
+}
+
+function mapStatistics(body: MeasurementsBody['statistics']): MeasurementStatistics {
+  return {
+    area: mapStatSummary(body.area),
+    perimeter: mapStatSummary(body.perimeter),
+    circularity: mapStatSummary(body.circularity),
+    cuAreaFraction: mapStatSummary(body.cu_area_fraction),
+    agAreaFraction: mapStatSummary(body.ag_area_fraction),
+    cuAgAreaRatio: mapStatSummary(body.cu_ag_area_ratio),
+    interfaceLength: mapStatSummary(body.interface_length),
+    nearestParticleDistance: mapStatSummary(body.nearest_particle_distance),
+  }
+}
+
+function mapMeasurements(body: MeasurementsBody | undefined): ParticleMeasurements | undefined {
+  if (!body) {
+    return undefined
+  }
+  return {
+    particles: body.particles.map(mapParticle),
+    statistics: mapStatistics(body.statistics),
+    units: body.units,
+  }
 }
 
 export class HttpPredictionGateway implements PredictionGateway {
@@ -66,6 +158,7 @@ export class HttpPredictionGateway implements PredictionGateway {
           modelName: body.model_name,
           modelVersion: body.model_version,
           inferenceTimeMs: body.inference_time_ms,
+          measurements: mapMeasurements(body.measurements),
         }
       } catch {
         // Aborting mid-body-read rejects response.json() too — report that

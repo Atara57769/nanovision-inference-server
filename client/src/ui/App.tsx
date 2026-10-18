@@ -32,20 +32,28 @@ export function App({ predictionGateway, healthGateway }: AppProps) {
   return (
     <main className="page">
       <header className="page__header">
-        <h1>NanoVision Inference</h1>
-        <p className="page__subtitle">Upload a SEM image to segment Cu–Ag particles</p>
+        <div>
+          <h1>NanoVision</h1>
+          <p className="page__subtitle">SEM image segmentation for Cu–Ag particles</p>
+        </div>
+        <span className={`status-chip ${health.ready ? '' : 'status-chip--not-ready'}`}>
+          <span className="status-chip__dot" aria-hidden="true" />
+          {health.ready ? 'Service ready' : 'Service not ready'}
+        </span>
       </header>
-      <section className="card">
-        <UploadForm
-          selectedFile={selectedFile}
-          onSelectFile={setSelectedFile}
-          onSubmit={handleSubmit}
-          canSubmit={canSubmit}
-          loading={loading}
-        />
-        {lastError && <ErrorMessage error={lastError} />}
-      </section>
-      {result && <ResultView result={result} sourceImage={selectedFile} />}
+      <div className="layout">
+        <section className="card card--upload">
+          <UploadForm
+            selectedFile={selectedFile}
+            onSelectFile={setSelectedFile}
+            onSubmit={handleSubmit}
+            canSubmit={canSubmit}
+            loading={loading}
+          />
+          {lastError && <ErrorMessage error={lastError} />}
+        </section>
+        {result && <ResultView result={result} sourceImage={selectedFile} />}
+      </div>
     </main>
   )
 }
