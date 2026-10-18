@@ -4,12 +4,19 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.api import prediction_controller, system_controller
+from app.api.image_utils import MAX_FILE_SIZE_BYTES
+from app.api.request_size_limit import MaxBodySizeMiddleware
 from app.config.settings import SettingsError, load_settings_from_environment
 from app.inference.inference_pipeline import InferencePipeline
 from app.model_management.model_provider import ModelLoadError, ModelProvider
 from app.services.prediction_service import PredictionService
 
 logger = logging.getLogger(__name__)
+
+# Multipart framing (boundaries, part headers) adds a little overhead on top of
+# the file content itself; MAX_FILE_SIZE_BYTES alone would reject otherwise-valid
+# uploads right at the limit.
+MAX_REQUEST_BODY_BYTES = MAX_FILE_SIZE_BYTES + 64 * 1024
 
 
 def load_model_provider() -> ModelProvider | None:
@@ -38,6 +45,9 @@ async def lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     app = FastAPI(title="NanoVision Inference Server", lifespan=lifespan)
+    # Caps the request body before Starlette's multipart parser can buffer an
+    # oversized upload to memory/disk.
+    app.add_middleware(MaxBodySizeMiddleware, max_bytes=MAX_REQUEST_BODY_BYTES)
     app.include_router(system_controller.router)
     app.include_router(prediction_controller.router)
     return app

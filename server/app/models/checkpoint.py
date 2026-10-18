@@ -13,6 +13,7 @@ from __future__ import annotations
 import hashlib
 from collections.abc import Mapping
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 
 import torch
@@ -66,7 +67,7 @@ def load_checkpoint(path: Path) -> tuple[Mapping[str, torch.Tensor], CheckpointM
             label_version=str(state["label_version"]),
             step=int(state["step"]),
             best_score=float(state["best_score"]),
-            sha256=_sha256(path),
+            sha256=file_sha256(path),
         )
         weights = state["model"]
     except (KeyError, TypeError) as error:
@@ -77,6 +78,20 @@ def load_checkpoint(path: Path) -> tuple[Mapping[str, torch.Tensor], CheckpointM
     return weights, metadata
 
 
-def _sha256(path: Path) -> str:
-    with path.open("rb") as stream:
+def file_sha256(path: Path) -> str:
+    """SHA-256 of a file's current contents.
+
+    Cached by path, size and mtime: checkpoint_download.ensure_checkpoint
+    verifies a checkpoint's hash right before load_checkpoint (above) reads it
+    again for the version string -- without the cache, startup would hash the
+    same unchanged file twice.
+    """
+
+    stat = path.stat()
+    return _cached_sha256(str(path), stat.st_mtime_ns, stat.st_size)
+
+
+@lru_cache(maxsize=8)
+def _cached_sha256(path: str, mtime_ns: int, size: int) -> str:
+    with Path(path).open("rb") as stream:
         return hashlib.file_digest(stream, "sha256").hexdigest()

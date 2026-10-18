@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-import hashlib
 import os
 from pathlib import Path
 from urllib.error import URLError
 from urllib.request import urlopen
+
+from app.models.checkpoint import file_sha256
 
 
 class CheckpointDownloadError(RuntimeError):
@@ -40,8 +41,7 @@ def ensure_checkpoint(path: Path, url: str | None, expected_sha256: str | None) 
 def _verify_sha256(path: Path, expected_sha256: str | None) -> None:
     if expected_sha256 is None:
         return
-    with path.open("rb") as stream:
-        actual_sha256 = hashlib.file_digest(stream, "sha256").hexdigest()
+    actual_sha256 = file_sha256(path)
     if actual_sha256 != expected_sha256:
         raise CheckpointDownloadError(
             f"checkpoint SHA-256 mismatch for {path}: expected {expected_sha256}, got {actual_sha256}"
