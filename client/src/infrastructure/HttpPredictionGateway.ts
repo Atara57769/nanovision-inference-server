@@ -21,7 +21,7 @@ export class HttpPredictionGateway implements PredictionGateway {
     this.timeoutMs = timeoutMs
   }
 
-  async predict(input: ImageInput): Promise<PredictionResult> {
+  async predict(input: ImageInput, externalSignal?: AbortSignal): Promise<PredictionResult> {
     const formData = new FormData()
     formData.append(
       'file',
@@ -29,36 +29,60 @@ export class HttpPredictionGateway implements PredictionGateway {
       input.fileName,
     )
 
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs)
+    const timeoutController = new AbortController()
+    // Covers the whole request, not just fetch() itself — cleared only once
+    // the body has been fully read (or the request has failed outright), so
+    // a slow-trickling response body is bounded by timeoutMs too, not just
+    // the time to receive headers.
+    const timeoutId = setTimeout(() => timeoutController.abort(), this.timeoutMs)
+    const signal = externalSignal
+      ? AbortSignal.any([externalSignal, timeoutController.signal])
+      : timeoutController.signal
 
-    let response: Response
     try {
-      response = await fetch(`${this.baseUrl}/predict`, {
-        method: 'POST',
-        body: formData,
-        signal: controller.signal,
-      })
-    } catch {
-      const error: PredictionError = controller.signal.aborted
-        ? { kind: 'timeout' }
-        : { kind: 'network_error' }
-      throw error
+      let response: Response
+      try {
+        response = await fetch(`${this.baseUrl}/predict`, {
+          method: 'POST',
+          body: formData,
+          signal,
+        })
+      } catch {
+        const error: PredictionError = timeoutController.signal.aborted
+          ? { kind: 'timeout' }
+          : { kind: 'network_error' }
+        throw error
+      }
+
+      if (!response.ok) {
+        throw await this.toPredictionError(response)
+      }
+
+      try {
+        const body = (await response.json()) as PredictResponseBody
+
+        return {
+          mask: decodeMaskPng(body.mask),
+          modelName: body.model_name,
+          modelVersion: body.model_version,
+          inferenceTimeMs: body.inference_time_ms,
+        }
+      } catch {
+        // Aborting mid-body-read rejects response.json() too — report that
+        // as a timeout, same as aborting before fetch() even resolves.
+        if (timeoutController.signal.aborted) {
+          const error: PredictionError = { kind: 'timeout' }
+          throw error
+        }
+        // A malformed JSON body or an undecodable mask on an otherwise-ok
+        // response is a bad response, not a network/timeout failure — but it
+        // must still reject with a PredictionError (never a raw Error), per
+        // this class's contract in ../core/ports/PredictionGateway.ts.
+        const error: PredictionError = { kind: 'prediction_failed' }
+        throw error
+      }
     } finally {
       clearTimeout(timeoutId)
-    }
-
-    if (!response.ok) {
-      throw await this.toPredictionError(response)
-    }
-
-    const body = (await response.json()) as PredictResponseBody
-
-    return {
-      mask: decodeMaskPng(body.mask),
-      modelName: body.model_name,
-      modelVersion: body.model_version,
-      inferenceTimeMs: body.inference_time_ms,
     }
   }
 

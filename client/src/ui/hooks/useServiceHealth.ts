@@ -20,10 +20,16 @@ export function useServiceHealth(healthGateway: HealthGateway): UseServiceHealth
     // StrictMode's dev-only mount→cleanup→mount cycle (and any real unmount)
     // leaves an orphaned request running instead of actually cancelling it.
     const controller = new AbortController()
+    // The gateway's own per-call timeout can exceed the poll interval, so two
+    // polls can be in flight at once. Without this, whichever one RESOLVES
+    // last would win regardless of which was SENT last, letting a slow,
+    // stale poll overwrite a newer, already-applied result.
+    let latestPollId = 0
 
     async function poll(): Promise<void> {
+      const pollId = ++latestPollId
       const result = await healthGateway.checkHealth(controller.signal)
-      if (!cancelled) {
+      if (!cancelled && pollId === latestPollId) {
         setHealth(result)
       }
     }

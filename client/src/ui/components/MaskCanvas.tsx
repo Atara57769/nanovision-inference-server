@@ -14,7 +14,13 @@ const CLASS_COLORS: Record<number, Rgb> = {
 }
 const FALLBACK_COLOR: Rgb = [220, 38, 38]
 
-function buildOutlineImageData(mask: SegmentationMask): ImageData {
+function buildOutlineImageData(mask: SegmentationMask): ImageData | null {
+  // The `ImageData` constructor throws for a zero dimension — a degenerate
+  // mask (e.g. an empty model/server response) must not crash the canvas.
+  if (mask.width === 0 || mask.height === 0) {
+    return null
+  }
+
   const boundary = computeBoundaryPixels(mask)
   const outline = new ImageData(mask.width, mask.height)
   for (let i = 0; i < boundary.length; i++) {
@@ -43,6 +49,76 @@ function loadNativeImage(objectUrl: string): Promise<HTMLImageElement | null> {
   })
 }
 
+type BackgroundSource =
+  | { kind: 'none' }
+  | { kind: 'unavailable' }
+  | { kind: 'image'; image: HTMLImageElement }
+  | { kind: 'raw'; width: number; height: number; data: Uint8ClampedArray<ArrayBuffer> }
+
+/** Decides what to draw behind the outline for a given upload, if anything.
+ *  Resolves once — the caller only paints after this settles, so background
+ *  and outline always appear together, never outline-first on a blank canvas. */
+async function loadBackground(sourceImage: File | null | undefined): Promise<BackgroundSource> {
+  if (!sourceImage) {
+    return { kind: 'none' }
+  }
+
+  const objectUrl = URL.createObjectURL(sourceImage)
+  const nativeImage = await loadNativeImage(objectUrl).finally(() =>
+    URL.revokeObjectURL(objectUrl),
+  )
+  if (nativeImage) {
+    return { kind: 'image', image: nativeImage }
+  }
+
+  const decoded = await decodeTiffPreview(sourceImage)
+  return decoded ? { kind: 'raw', ...decoded } : { kind: 'unavailable' }
+}
+
+function imageDataToCanvas(data: ImageData): HTMLCanvasElement | null {
+  const canvas = document.createElement('canvas')
+  canvas.width = data.width
+  canvas.height = data.height
+  const ctx = canvas.getContext('2d')
+  if (!ctx) {
+    return null
+  }
+  ctx.putImageData(data, 0, 0)
+  return canvas
+}
+
+function drawBackground(
+  ctx: CanvasRenderingContext2D,
+  source: BackgroundSource,
+  width: number,
+  height: number,
+): void {
+  if (source.kind === 'image') {
+    ctx.drawImage(source.image, 0, 0, width, height)
+    return
+  }
+  if (source.kind === 'raw') {
+    const bgCanvas = imageDataToCanvas(new ImageData(source.data, source.width, source.height))
+    if (bgCanvas) {
+      ctx.drawImage(bgCanvas, 0, 0, width, height)
+    }
+  }
+}
+
+function paintOutline(ctx: CanvasRenderingContext2D, mask: SegmentationMask): void {
+  const outlineData = buildOutlineImageData(mask)
+  if (!outlineData) {
+    return
+  }
+  // A separate canvas for the outline, composited in via drawImage —
+  // putImageData writes raw pixels (including transparent ones) and
+  // would erase the source image already drawn underneath.
+  const outlineCanvas = imageDataToCanvas(outlineData)
+  if (outlineCanvas) {
+    ctx.drawImage(outlineCanvas, 0, 0)
+  }
+}
+
 interface MaskCanvasProps {
   mask: SegmentationMask
   /** The originally uploaded image, drawn underneath the outline when given. */
@@ -51,87 +127,33 @@ interface MaskCanvasProps {
 
 export function MaskCanvas({ mask, sourceImage }: MaskCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  // Set when neither the native decode nor the TIFF fallback could produce a
-  // background — without this, that case used to leave the canvas blank
-  // with no outline either, looking identical to "nothing happened".
   const [backgroundUnavailable, setBackgroundUnavailable] = useState(false)
 
   useEffect(() => {
     const canvas = canvasRef.current
     const ctx = canvas?.getContext('2d')
-    // jsdom (unit tests) has no real 2D canvas context — draw only when one exists.
+    // jsdom (unit tests) has no real 2D canvas context — skip the decode and
+    // draw work entirely rather than loading a background nothing can paint.
     if (!canvas || !ctx) {
       return
     }
 
     let cancelled = false
-    let objectUrl: string | null = null
-    setBackgroundUnavailable(false)
 
-    function paintOutline() {
-      // A separate canvas for the outline, composited in via drawImage —
-      // putImageData writes raw pixels (including transparent ones) and
-      // would erase the source image already drawn underneath.
-      const outlineCanvas = document.createElement('canvas')
-      outlineCanvas.width = mask.width
-      outlineCanvas.height = mask.height
-      const outlineCtx = outlineCanvas.getContext('2d')
-      if (!outlineCtx || !ctx) {
+    void loadBackground(sourceImage).then((background) => {
+      if (cancelled) {
         return
       }
-      outlineCtx.putImageData(buildOutlineImageData(mask), 0, 0)
-      ctx.drawImage(outlineCanvas, 0, 0)
-    }
-
-    function drawRgbaBackground(width: number, height: number, data: Uint8ClampedArray<ArrayBuffer>) {
-      const bgCanvas = document.createElement('canvas')
-      bgCanvas.width = width
-      bgCanvas.height = height
-      const bgCtx = bgCanvas.getContext('2d')
-      if (!bgCtx || !ctx) {
-        return
-      }
-      bgCtx.putImageData(new ImageData(data, width, height), 0, 0)
-      ctx.drawImage(bgCanvas, 0, 0, mask.width, mask.height)
-    }
-
-    async function draw() {
-      if (!sourceImage) {
-        ctx!.clearRect(0, 0, mask.width, mask.height)
-        paintOutline()
-        return
-      }
-
-      objectUrl = URL.createObjectURL(sourceImage)
-      const nativeImage = await loadNativeImage(objectUrl)
-      if (cancelled || !ctx) {
-        return
-      }
-
-      if (nativeImage) {
-        ctx.drawImage(nativeImage, 0, 0, mask.width, mask.height)
-      } else {
-        const decoded = await decodeTiffPreview(sourceImage)
-        if (cancelled || !ctx) {
-          return
-        }
-        if (decoded) {
-          drawRgbaBackground(decoded.width, decoded.height, decoded.data)
-        } else {
-          setBackgroundUnavailable(true)
-          ctx.clearRect(0, 0, mask.width, mask.height)
-        }
-      }
-      paintOutline()
-    }
-
-    void draw()
+      // Background and outline are only ever painted together, once the
+      // background decision is final — never the outline alone first.
+      setBackgroundUnavailable(background.kind === 'unavailable')
+      ctx.clearRect(0, 0, mask.width, mask.height)
+      drawBackground(ctx, background, mask.width, mask.height)
+      paintOutline(ctx, mask)
+    })
 
     return () => {
       cancelled = true
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl)
-      }
     }
   }, [mask, sourceImage])
 

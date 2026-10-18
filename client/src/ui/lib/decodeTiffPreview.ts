@@ -32,10 +32,10 @@ export async function decodeTiffPreview(file: File): Promise<DecodedImage | null
       return null
     }
     const rgba = UTIF.toRGBA8(page)
-    // Allocated by length (not by wrapping rgba's own buffer) so the result
-    // is pinned to a fresh ArrayBuffer, matching ImageData's constructor.
-    const data = new Uint8ClampedArray(rgba.length)
-    data.set(rgba)
+    // The Uint8ClampedArray(typedArray) constructor already copies values
+    // into a fresh ArrayBuffer rather than aliasing rgba's own buffer,
+    // matching ImageData's constructor.
+    const data = new Uint8ClampedArray(rgba)
     return { width: page.width, height: page.height, data }
   } catch {
     return null

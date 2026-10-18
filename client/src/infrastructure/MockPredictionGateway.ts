@@ -26,8 +26,9 @@ function buildMockClassGrid(): Uint8Array {
 }
 
 export class MockPredictionGateway implements PredictionGateway {
-  async predict(input: ImageInput): Promise<PredictionResult> {
+  async predict(input: ImageInput, signal?: AbortSignal): Promise<PredictionResult> {
     void input
+    void signal
     await delay(MOCK_DELAY_MS)
 
     return {

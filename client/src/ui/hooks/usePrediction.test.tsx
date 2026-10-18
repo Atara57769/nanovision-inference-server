@@ -10,6 +10,16 @@ function makeFile(): File {
   return new File(['bytes'], 'cells.png', { type: 'image/png' })
 }
 
+// submit() awaits file.arrayBuffer() before it ever calls predict() — jsdom
+// polyfills that via FileReader, which resolves over real macrotasks (nested
+// setImmediate calls), not a microtask. A single `await Promise.resolve()`
+// can't flush those; looping a few real event-loop turns can.
+async function flushAsync(turns = 5): Promise<void> {
+  for (let i = 0; i < turns; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  }
+}
+
 const mockResult: PredictionResult = {
   mask: { width: 2, height: 2, classGrid: new Uint8Array(4) },
   modelName: 'test-model',
@@ -110,10 +120,20 @@ describe('usePrediction', () => {
     // shown as if it belonged to it.
     expect(result.current.result).toBeNull()
 
+    // Flush submit()'s file.arrayBuffer() await so predict() actually gets
+    // called and rebinds resolveSecondPredict — otherwise resolving it below
+    // would be a no-op against the original do-nothing closure, and this
+    // test would pass without ever exercising the resolution it's named for.
+    await act(flushAsync)
+
+    const secondResult: PredictionResult = { ...mockResult, modelVersion: '2.0.0' }
     await act(async () => {
-      resolveSecondPredict({ ...mockResult, modelVersion: '2.0.0' })
-      await Promise.resolve()
+      resolveSecondPredict(secondResult)
+      await flushAsync()
     })
+
+    expect(result.current.result).toEqual(secondResult)
+    expect(result.current.loading).toBe(false)
   })
 
   it('clears the previous result and error the moment a new file is picked, before Predict is clicked', async () => {
@@ -137,6 +157,77 @@ describe('usePrediction', () => {
     // No submit() yet — picking the file alone must already drop the old mask.
     expect(result.current.result).toBeNull()
     expect(result.current.lastError).toBeNull()
+  })
+
+  it('aborts a superseded request and ignores its late rejection (no stale error, no premature loading=false)', async () => {
+    let rejectFirst: (error: unknown) => void = () => {}
+    let firstSignal: AbortSignal | undefined
+    let resolveSecond: (result: PredictionResult) => void = () => {}
+    const gateway: PredictionGateway = {
+      predict: vi
+        .fn()
+        .mockImplementationOnce((_input: unknown, signal?: AbortSignal) => {
+          firstSignal = signal
+          return new Promise<PredictionResult>((_resolve, reject) => {
+            rejectFirst = reject
+          })
+        })
+        .mockImplementationOnce(
+          () =>
+            new Promise<PredictionResult>((resolve) => {
+              resolveSecond = resolve
+            }),
+        ),
+    }
+    const { result } = renderHook(() => usePrediction(gateway))
+
+    act(() => {
+      result.current.setSelectedFile(makeFile())
+    })
+    let firstSubmitPromise: Promise<unknown> = Promise.resolve(null)
+    act(() => {
+      firstSubmitPromise = result.current.submit()
+    })
+    await act(flushAsync)
+    expect(gateway.predict).toHaveBeenCalledTimes(1)
+
+    // Picking a new file mid-request must actually cancel the first
+    // request, not just ignore its eventual result.
+    act(() => {
+      result.current.setSelectedFile(makeFile())
+    })
+    expect(firstSignal?.aborted).toBe(true)
+
+    act(() => {
+      void result.current.submit()
+    })
+    await act(flushAsync)
+    expect(gateway.predict).toHaveBeenCalledTimes(2)
+    expect(result.current.loading).toBe(true)
+
+    // The stale first request rejects after being superseded.
+    await act(async () => {
+      rejectFirst({ kind: 'service_not_ready' })
+      await flushAsync()
+    })
+
+    // Its rejection must not surface as the current error, must not clear
+    // loading while the second request is still genuinely in flight, and
+    // the promise it returned to its own caller must not carry the stale
+    // error either.
+    expect(result.current.lastError).toBeNull()
+    expect(result.current.loading).toBe(true)
+    await expect(firstSubmitPromise).resolves.toBeNull()
+
+    const secondResult: PredictionResult = { ...mockResult, modelVersion: '2.0.0' }
+    await act(async () => {
+      resolveSecond(secondResult)
+      await flushAsync()
+    })
+
+    expect(result.current.result).toEqual(secondResult)
+    expect(result.current.lastError).toBeNull()
+    expect(result.current.loading).toBe(false)
   })
 
   it('normalizes a non-PredictionError rejection to network_error', async () => {

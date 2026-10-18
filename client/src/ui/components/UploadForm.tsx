@@ -30,6 +30,7 @@ export function UploadForm({
         accept="image/jpeg,image/png,image/webp,image/tiff,.tif,.tiff"
         onChange={(event) => onSelectFile(event.target.files?.[0] ?? null)}
         aria-label="Select image"
+        disabled={loading}
       />
       {selectedFile && <p>{selectedFile.name}</p>}
       <button type="submit" disabled={!canSubmit}>

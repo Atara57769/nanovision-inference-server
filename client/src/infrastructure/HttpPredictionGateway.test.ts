@@ -79,6 +79,53 @@ describe('HttpPredictionGateway', () => {
     await assertion
   })
 
+  it('also times out while the response body is still being read, not just while waiting for headers', async () => {
+    vi.useFakeTimers()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(
+        (_url: string, init: RequestInit) =>
+          Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () =>
+              new Promise((_resolve, reject) => {
+                init.signal?.addEventListener('abort', () => {
+                  reject(new DOMException('Aborted', 'AbortError'))
+                })
+              }),
+          }) as Promise<Response>,
+      ),
+    )
+    const gateway = new HttpPredictionGateway('http://localhost', 1000)
+
+    const predictPromise = gateway.predict(input)
+    const assertion = expect(predictPromise).rejects.toMatchObject({ kind: 'timeout' })
+    await vi.advanceTimersByTimeAsync(1000)
+    await assertion
+  })
+
+  it('aborts the request when the caller cancels via an external signal', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(
+        (_url: string, init: RequestInit) =>
+          new Promise((_resolve, reject) => {
+            init.signal?.addEventListener('abort', () => {
+              reject(new DOMException('Aborted', 'AbortError'))
+            })
+          }),
+      ),
+    )
+    const gateway = new HttpPredictionGateway('http://localhost', 30_000)
+    const externalController = new AbortController()
+
+    const predictPromise = gateway.predict(input, externalController.signal)
+    externalController.abort()
+
+    await expect(predictPromise).rejects.toMatchObject({ kind: 'network_error' })
+  })
+
   it('rejects with a value isPredictionError recognizes', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(500, {})))
     const gateway = new HttpPredictionGateway('http://localhost', 5000)

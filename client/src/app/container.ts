@@ -25,7 +25,9 @@ export function createContainer(): Container {
   }
 
   const baseUrl: string = env.VITE_API_BASE_URL || DEFAULT_BASE_URL
-  const timeoutMs = Number(env.VITE_API_TIMEOUT_MS) || DEFAULT_TIMEOUT_MS
+  const parsedTimeoutMs = Number(env.VITE_API_TIMEOUT_MS)
+  const timeoutMs =
+    env.VITE_API_TIMEOUT_MS && !Number.isNaN(parsedTimeoutMs) ? parsedTimeoutMs : DEFAULT_TIMEOUT_MS
 
   return {
     predictionGateway: new HttpPredictionGateway(baseUrl, timeoutMs),
