@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from time import perf_counter
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import numpy as np
 import torch
@@ -47,23 +47,7 @@ class InferencePipeline:
 
         return PredictionResult(
             mask=mask,
-            model_name=self._model_info_value(model_info, "name", "model_name"),
-            model_version=self._model_info_value(model_info, "version", "model_version"),
+            model_name=model_info.name,
+            model_version=model_info.version,
             inference_time_ms=elapsed_ms,
         )
-
-    @staticmethod
-    def _model_info_value(model_info: Any, *fields: str) -> str:
-        """Read a named value from the project ModelInfo object.
-
-        Supporting a mapping as well as attribute access keeps this boundary
-        compatible with lightweight test doubles without coupling it to a
-        particular model implementation.
-        """
-
-        for field in fields:
-            if isinstance(model_info, dict) and field in model_info:
-                return str(model_info[field])
-            if not isinstance(model_info, dict) and hasattr(model_info, field):
-                return str(getattr(model_info, field))
-        raise AttributeError(f"ModelInfo must define one of: {', '.join(fields)}")
