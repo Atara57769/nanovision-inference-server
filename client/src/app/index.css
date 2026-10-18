@@ -74,6 +74,20 @@ p {
   margin: 0;
 }
 
+/* Visually hidden but still announced by screen readers — same clip
+   technique as .dropzone__input, as a reusable utility. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .page {
   flex: 1;
   display: flex;
@@ -277,9 +291,14 @@ p {
 .result__meta {
   display: flex;
   gap: 8px;
+  margin: 0;
   font-size: 12px;
   font-family: var(--mono);
   color: var(--text);
+}
+
+.result__meta dd {
+  margin: 0;
 }
 
 .result__body {

@@ -14,15 +14,21 @@ export function ResultView({ result, sourceImage }: ResultViewProps) {
     <section className="card result" aria-label="Prediction result">
       <div className="result__header">
         <h2>Segmentation result</h2>
-        <div className="result__meta">
-          {/* No hardcoded "v" prefix — the server's modelVersion string owns its own format
-              (e.g. "v1-step2500-78373665" vs the mock's "0.0.0-mock"); don't assume one. */}
-          <span>
-            {result.modelName} {result.modelVersion}
-          </span>
+        <dl className="result__meta">
+          <div>
+            <dt className="sr-only">Model</dt>
+            {/* No hardcoded "v" prefix — the server's modelVersion string owns its own format
+                (e.g. "v1-step2500-78373665" vs the mock's "0.0.0-mock"); don't assume one. */}
+            <dd>
+              {result.modelName} {result.modelVersion}
+            </dd>
+          </div>
           <span aria-hidden="true">·</span>
-          <span>{result.inferenceTimeMs.toFixed(1)} ms</span>
-        </div>
+          <div>
+            <dt className="sr-only">Inference time</dt>
+            <dd>{result.inferenceTimeMs.toFixed(1)} ms</dd>
+          </div>
+        </dl>
       </div>
       <div className="result__body">
         <MaskCanvas mask={result.mask} sourceImage={sourceImage} />

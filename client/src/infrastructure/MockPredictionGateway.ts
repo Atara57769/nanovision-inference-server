@@ -32,8 +32,10 @@ function buildMockClassGrid(): Uint8Array {
 
 /** Computes a real (not hand-picked) count/mean/variance/histogram from a set
  *  of values, matching how the server's own `summarize()` behaves — so the
- *  mock's statistics are always consistent with its mock particles. */
-function summarize(values: number[], bins = 5): StatSummary {
+ *  mock's statistics are always consistent with its mock particles. `bins`
+ *  defaults to 10 to match the server's own fixed bin count
+ *  (server/app/analysis/statistics.py: `np.histogram(data, bins=10)`). */
+function summarize(values: number[], bins = 10): StatSummary {
   const count = values.length
   if (count === 0) {
     return { count: 0, mean: null, variance: null, histogram: { binEdges: [], counts: [] } }
@@ -79,7 +81,11 @@ const MOCK_MEASUREMENTS: ParticleMeasurements = {
     interfaceLength: summarize(MOCK_PARTICLES.map((p) => p.interfaceLength)),
     nearestParticleDistance: summarize(definedOnly(MOCK_PARTICLES.map((p) => p.nearestParticleDistance))),
   },
-  units: { length: 'pixels', area: 'pixels_squared' },
+  // Already in the domain's short-symbol form — the real gateway normalizes
+  // the server's wire vocabulary ("pixels"/"pixels_squared") to this before
+  // it reaches a PredictionResult, and this mock skips that wire format
+  // entirely by construction.
+  units: { length: 'px', area: 'px²' },
 }
 
 export class MockPredictionGateway implements PredictionGateway {

@@ -37,7 +37,11 @@ const measurements: ParticleMeasurements = {
     interfaceLength: emptyStat,
     nearestParticleDistance: emptyStat,
   },
-  units: { length: 'pixels', area: 'pixels_squared' },
+  // Already-mapped short symbols — HttpPredictionGateway owns converting the
+  // server's raw "pixels"/"pixels_squared" wire vocabulary to these, so the
+  // panel itself never deals with that conversion (see its own test suite
+  // for that mapping).
+  units: { length: 'px', area: 'px²' },
 }
 
 describe('MeasurementsPanel', () => {
@@ -58,9 +62,9 @@ describe('MeasurementsPanel', () => {
 
     expect(screen.getByText('1 particle')).toBeInTheDocument()
     expect(screen.getByText('mean 100.0 px²')).toBeInTheDocument()
-    expect(screen.getByText('variance 0.0')).toBeInTheDocument()
+    expect(screen.getByText('std dev 0.0')).toBeInTheDocument()
     expect(
-      screen.getByRole('img', { name: 'Area histogram: 80-120 px²: 1' }),
+      screen.getByRole('img', { name: 'Area histogram: 80–120 px²: 1' }),
     ).toBeInTheDocument()
   })
 
@@ -79,5 +83,21 @@ describe('MeasurementsPanel', () => {
 
     const row = screen.getByText('Nearest particle').closest('.measurements__row')
     expect(row).toHaveTextContent('— px ± —')
+  })
+
+  it('derives the composition percentages so they always sum to 100', () => {
+    const tiedMeasurements: ParticleMeasurements = {
+      ...measurements,
+      statistics: {
+        ...measurements.statistics,
+        cuAreaFraction: { ...measurements.statistics.cuAreaFraction, mean: 0.505 },
+        agAreaFraction: { ...measurements.statistics.agAreaFraction, mean: 0.495 },
+      },
+    }
+    render(<MeasurementsPanel measurements={tiedMeasurements} />)
+
+    expect(
+      screen.getByRole('img', { name: 'Mean composition: 51% Cu, 49% Ag' }),
+    ).toBeInTheDocument()
   })
 })

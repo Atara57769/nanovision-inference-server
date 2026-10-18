@@ -101,7 +101,46 @@ describe('HttpPredictionGateway', () => {
       variance: 0,
       histogram: { binEdges: [0, 8], counts: [1] },
     })
-    expect(result.measurements?.units).toEqual({ length: 'pixels', area: 'pixels_squared' })
+    // The server's raw wire vocabulary ("pixels"/"pixels_squared") is
+    // normalized to short display symbols at this gateway boundary.
+    expect(result.measurements?.units).toEqual({ length: 'px', area: 'px²' })
+  })
+
+  it('passes an unrecognized unit string through unchanged', async () => {
+    const mask = buildGrayscalePngBase64([0], 1, 1)
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        jsonResponse(200, {
+          mask,
+          model_name: 'nanovision-seg',
+          model_version: 'v1.0.0',
+          inference_time_ms: 10,
+          measurements: {
+            particles: [],
+            statistics: {
+              area: emptyStatBody,
+              perimeter: emptyStatBody,
+              circularity: emptyStatBody,
+              cu_area_fraction: emptyStatBody,
+              ag_area_fraction: emptyStatBody,
+              cu_ag_area_ratio: emptyStatBody,
+              interface_length: emptyStatBody,
+              nearest_particle_distance: emptyStatBody,
+            },
+            units: { length: 'micrometers', area: 'micrometers_squared' },
+          },
+        }),
+      ),
+    )
+    const gateway = new HttpPredictionGateway('http://localhost', 5000)
+
+    const result = await gateway.predict(input)
+
+    expect(result.measurements?.units).toEqual({
+      length: 'micrometers',
+      area: 'micrometers_squared',
+    })
   })
 
   it('leaves measurements undefined when the response has no measurements field', async () => {

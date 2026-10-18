@@ -65,6 +65,12 @@ function mapStatSummary(body: StatSummaryBody): StatSummary {
   }
 }
 
+// Written as explicit object literals, one field per line, rather than a
+// [domainKey, wireKey] table run through Object.fromEntries: a literal keeps
+// every field checked against Particle/MeasurementStatistics by the
+// compiler (miss one and the build fails), which a table-driven version
+// could only get back by casting through `unknown`, trading that safety
+// away for less repetition on a response-parsing boundary.
 function mapParticle(body: ParticleBody): Particle {
   return {
     id: body.id,
@@ -93,6 +99,19 @@ function mapStatistics(body: MeasurementsBody['statistics']): MeasurementStatist
   }
 }
 
+// The server's own unit vocabulary ("pixels", "pixels_squared") is a wire
+// format concern — normalized to short display symbols here, at the same
+// boundary every other field crosses, so nothing past this file has to know
+// what the server calls its units.
+const UNIT_ABBREVIATIONS: Record<string, string> = {
+  pixels: 'px',
+  pixels_squared: 'px²',
+}
+
+function mapUnit(unit: string): string {
+  return UNIT_ABBREVIATIONS[unit] ?? unit
+}
+
 function mapMeasurements(body: MeasurementsBody | undefined): ParticleMeasurements | undefined {
   if (!body) {
     return undefined
@@ -100,7 +119,7 @@ function mapMeasurements(body: MeasurementsBody | undefined): ParticleMeasuremen
   return {
     particles: body.particles.map(mapParticle),
     statistics: mapStatistics(body.statistics),
-    units: body.units,
+    units: { length: mapUnit(body.units.length), area: mapUnit(body.units.area) },
   }
 }
 

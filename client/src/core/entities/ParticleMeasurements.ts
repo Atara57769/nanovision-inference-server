@@ -42,6 +42,7 @@ export type MeasurementField = keyof MeasurementStatistics
 export interface ParticleMeasurements {
   particles: Particle[]
   statistics: MeasurementStatistics
-  /** e.g. { length: "pixels", area: "pixels_squared" }. */
+  /** Short display symbols (e.g. "px", "px²") — the gateway normalizes the
+   *  server's own unit vocabulary before it reaches the domain layer. */
   units: { length: string; area: string }
 }
