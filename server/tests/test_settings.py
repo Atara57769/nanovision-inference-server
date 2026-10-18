@@ -7,8 +7,6 @@ import pytest
 import yaml
 
 from app.config.settings import (
-    CHECKPOINT_PATH_ENV,
-    CONFIG_PATH_ENV,
     DEFAULT_CONFIG_PATH,
     SERVER_ROOT,
     Device,
@@ -16,7 +14,6 @@ from app.config.settings import (
     Settings,
     SettingsError,
     load_settings,
-    load_settings_from_environment,
     validate_settings,
 )
 from app.models.model_name import ModelName
@@ -46,35 +43,12 @@ def test_the_shipped_config_is_valid() -> None:
     assert settings.footer_height == 50  # team decision: crop the info bar, as research did
 
 
-def test_without_environment_variables_the_project_defaults_are_used() -> None:
-    settings = load_settings_from_environment(environ={})
+def test_the_project_defaults_include_the_official_checkpoint() -> None:
+    settings = load_settings(DEFAULT_CONFIG_PATH)
 
-    assert settings == load_settings(DEFAULT_CONFIG_PATH)
     assert settings.active.checkpoint == SERVER_ROOT / "checkpoints" / "unetpp" / "unetplusplus_best.pt"
     assert settings.active.checkpoint_url is not None
     assert settings.active.checkpoint_sha256 is not None
-
-
-def test_environment_variables_choose_the_config_and_the_checkpoint(tmp_path: Path) -> None:
-    config = copy.deepcopy(VALID_CONFIG)
-    config["batch_size"] = 2
-    environ = {
-        CONFIG_PATH_ENV: str(write_config(tmp_path, config)),
-        CHECKPOINT_PATH_ENV: str(tmp_path / "deployed.pt"),
-    }
-
-    settings = load_settings_from_environment(environ)
-
-    assert settings.batch_size == 2  # read from the other config file
-    assert settings.active.checkpoint == tmp_path / "deployed.pt"
-    assert settings.active.checkpoint_url is None
-    assert settings.active.checkpoint_sha256 is None
-
-
-def test_relative_paths_in_the_environment_also_start_at_the_server_folder() -> None:
-    settings = load_settings_from_environment({CHECKPOINT_PATH_ENV: "elsewhere/best.pt"})
-
-    assert settings.active.checkpoint == SERVER_ROOT / "elsewhere" / "best.pt"
 
 
 def test_yaml_becomes_typed_settings(tmp_path: Path) -> None:
