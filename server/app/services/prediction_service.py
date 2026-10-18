@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from app.models.prediction_result import PredictionResult
+from app.analysis.particle_analyzer import analyze_particles
 
 if TYPE_CHECKING:
     from app.inference.inference_pipeline import InferencePipeline
@@ -25,4 +26,6 @@ class PredictionService:
 
     def predict(self, image: np.ndarray) -> PredictionResult:
         """Run inference and return the prediction result."""
-        return self._pipeline.run(image)
+        result = self._pipeline.run(image)
+        result.measurements = analyze_particles(result.mask)
+        return result
