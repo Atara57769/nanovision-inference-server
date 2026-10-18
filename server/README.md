@@ -67,3 +67,21 @@ and scored with the research evaluator (NanoVision `code/amat-2/src/evaluate.py`
 @ d8f35ed). It reproduced the reported DEV score exactly: 0.8537261284. On three
 images its masks were also compared with research `predict_mask`: identical in
 every pixel.
+
+## Particle measurements
+
+`POST /predict` also returns `measurements`, containing per-particle values and
+statistics. Dark and bright foreground pixels are grouped into 8-connected
+components; touching particles are not separated. Image-edge particles are
+included and may be incomplete. Area is a pixel count. Perimeter counts exposed
+horizontal and vertical pixel edges, and interface length counts shared edges
+between dark and bright pixels. Circularity is `4π area / perimeter²`; the
+pixel-edge perimeter is grid-dependent. Fractions use the full particle area,
+and the Cu/Ag area ratio is null when Ag area is zero. Dark pixels represent Cu,
+and bright pixels represent Ag. The nearest
+particle distance is between centroids; it is null for a single particle.
+Lengths are in pixels and areas in pixels squared. The top-facet measurement is not yet defined.
+
+Statistics contain the count of defined values, arithmetic mean, population
+variance, and a 10-bin histogram with bin edges and counts. Empty statistics
+have null mean and variance and empty histogram arrays.

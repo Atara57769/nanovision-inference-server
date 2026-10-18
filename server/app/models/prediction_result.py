@@ -18,3 +18,4 @@ class PredictionResult:
     model_name: str
     model_version: str
     inference_time_ms: float
+    measurements: dict | None = None

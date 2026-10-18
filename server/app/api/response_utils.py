@@ -21,4 +21,5 @@ def serialize_result(result: PredictionResult) -> dict[str, Any]:
         "model_name": result.model_name,
         "model_version": result.model_version,
         "inference_time_ms": result.inference_time_ms,
+        "measurements": result.measurements,
     }
