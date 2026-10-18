@@ -1,7 +1,9 @@
 import logging
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import prediction_controller, system_controller
 from app.api.image_utils import MAX_FILE_SIZE_BYTES
@@ -17,6 +19,19 @@ logger = logging.getLogger(__name__)
 # the file content itself; MAX_FILE_SIZE_BYTES alone would reject otherwise-valid
 # uploads right at the limit.
 MAX_REQUEST_BODY_BYTES = MAX_FILE_SIZE_BYTES + 64 * 1024
+
+# Comma-separated browser origins allowed to call this API. Defaults to the
+# Vite dev server so local development keeps working with no setup; any other
+# deployment (staging, production, a different dev port) must set this itself.
+ALLOWED_ORIGINS_ENV = "NANOVISION_ALLOWED_ORIGINS"
+_DEFAULT_ALLOWED_ORIGINS = ("http://localhost:5173", "http://127.0.0.1:5173")
+
+
+def allowed_origins() -> list[str]:
+    raw = os.environ.get(ALLOWED_ORIGINS_ENV)
+    if not raw:
+        return list(_DEFAULT_ALLOWED_ORIGINS)
+    return [origin.strip() for origin in raw.split(",") if origin.strip()]
 
 
 def load_model_provider() -> ModelProvider | None:
@@ -48,6 +63,15 @@ def create_app() -> FastAPI:
     # Caps the request body before Starlette's multipart parser can buffer an
     # oversized upload to memory/disk.
     app.add_middleware(MaxBodySizeMiddleware, max_bytes=MAX_REQUEST_BODY_BYTES)
+    # The client is a browser app on its own origin (Vite dev server by
+    # default); without this, every fetch() from it fails CORS before the
+    # request is even sent. See ALLOWED_ORIGINS_ENV to deploy elsewhere.
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=allowed_origins(),
+        allow_methods=["GET", "POST"],
+        allow_headers=["*"],
+    )
     app.include_router(system_controller.router)
     app.include_router(prediction_controller.router)
     return app

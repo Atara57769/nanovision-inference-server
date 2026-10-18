@@ -8,3 +8,6 @@ __pycache__/
 *.pyc
 .pytest_cache/
 *.egg-info/
+
+# Model checkpoints: large binaries, fetched/verified at startup (see README).
+checkpoints/

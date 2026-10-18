@@ -1,0 +1,1 @@
+export const HEALTH_POLL_INTERVAL_MS = 15_000
